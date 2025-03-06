@@ -1,84 +1,93 @@
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 import rasterio
 import geopandas as gpd
 import cartopy.crs as ccrs
+import cartopy.feature as cfeatur
 import os
+from matplotlib.colors import LinearSegmentedColormap
 
-# 定义 Albers 投影坐标系
-albers_proj = ccrs.AlbersEqualArea(
-    central_longitude=105,
-    central_latitude=35,
-    standard_parallels=(25, 47)
-)
 
-# 创建绘图对象
-fig, ax = plt.subplots(figsize=(12, 12), subplot_kw={'projection': albers_proj})
+# 配置字体
+config = {
+    "font.family": 'Arial',
+    'font.size': 24,
+    "mathtext.fontset": 'stix',
+    "font.serif": ['SimSun'],
+    'font.weight': 'bold'
+}
+mpl.rcParams.update(config)
+mpl.rcParams['axes.unicode_minus'] = False
 
-# 读取 GeoJSON 数据
-geojson_file_path = '中华人民共和国.json'
-gdf_geojson = gpd.read_file(geojson_file_path)
+# 读取 SHP 作为底图
+bound_file = gpd.read_file('GS(2020)4619/GS(2020)4619.shp')
+import geopandas as gpd
 
-# 转换 GeoJSON 数据的坐标系到自定义投影坐标系
-if gdf_geojson.crs != albers_proj:
-    gdf_geojson = gdf_geojson.to_crs(albers_proj)
+# 使用 geopandas 直接读取 shapefile 文件
+map_china_path = r'GS(2020)4619\\GS(2020)4619_4326_map.shp'
+map_china_gdf = gpd.read_file(map_china_path)
 
-# 绘制 GeoJSON 数据
-gdf_geojson.plot(ax=ax, edgecolor='black', facecolor='white', alpha=0.5, label='GeoJSON Data')
+# 打印出 GeoDataFrame 的前几行
+print(map_china_gdf.head())
 
-# 读取并绘制 TIFF 数据
-tif_file = 'cropped_result/tiff/cropped_predicted_rf.tif'
+def point_plot(pre_title: str, tif_file: str):
+    fig, ax = plt.subplots(figsize=(12, 10), subplot_kw={'projection': ccrs.PlateCarree()})
+    ax.set_extent([73.2, 135, 17, 55], crs=ccrs.PlateCarree())  # 设置地图范围
 
-# 提取文件名作为标题
-file_name = os.path.basename(tif_file)
-title = os.path.splitext(file_name)[0]
+    # 添加背景要素
+    ax.add_feature(cfeatur.OCEAN.with_scale('10m'), zorder=2)
+    ax.add_feature(cfeatur.LAKES.with_scale('10m'), zorder=2)
 
-with rasterio.open(tif_file) as src:
-    data = src.read(1)
-    no_data_value = src.nodata
-    
-    # 将无效值（no_data_value）设置为 NaN
-    if no_data_value is not None:
-        data = np.where(data == no_data_value, np.nan, data)
-    
-    # 计算图像的仿射变换矩阵和坐标
-    transform = src.transform
-    bounds = [transform * (0, 0), transform * (src.width, src.height)]
-    extent = [bounds[0][0], bounds[1][0], bounds[1][1], bounds[0][1]]
-    
-    # 获取最大值和最小值
-    vmin, vmax = np.nanmin(data), np.nanmax(data)
-    print(f"TIFF 文件 {tif_file} 的最小值: {vmin}")
-    print(f"TIFF 文件 {tif_file} 的最大值: {vmax}")
-    
-    # 设置颜色映射
-    cmap = plt.get_cmap('viridis').reversed()
-    
-    # 绘制栅格数据
-    im = ax.imshow(data, cmap=cmap, interpolation='none', extent=extent, transform=ccrs.PlateCarree(), alpha=1)
-    
-    # 添加颜色条
-    cbar = plt.colorbar(im, ax=ax, orientation='vertical', pad=0.05)
-    cbar.set_label('Pixel Value')
+    # 绘制 SHP 边界
+    bound_file.to_crs("EPSG:4326").plot(ax=ax, color='none', edgecolor='black', linewidth=0.8)
 
-# 添加标题
-plt.title(f'{title}')
+    # 绘制 map_china 的边界
+    if map_china_gdf is not None:
+        map_china_gdf.to_crs("EPSG:4326").plot(ax=ax, color='none', edgecolor='blue', linewidth=1)
 
-# 设置坐标轴标签
-ax.set_xlabel('Easting (meters)')
-ax.set_ylabel('Northing (meters)')
+    # 读取 TIFF 文件并绘制
+    with rasterio.open(tif_file) as src:
+        data = src.read(1)
+        no_data_value = src.nodata
 
-# 添加经纬度网格线
-gridlines = ax.gridlines(draw_labels=True, color='gray', linestyle='--', alpha=0.5)
-gridlines.xlabel_style = {'size': 10}
-gridlines.ylabel_style = {'size': 10}
-# 隐藏右边和上边的网格线标签
-gridlines.top_labels = False
-gridlines.right_labels = False
+        # 处理无效值
+        if no_data_value is not None:
+            data = np.where(data == no_data_value, np.nan, data)
 
-# 保存图形到文件
-output_file_path = f'data/{title}.png'
-plt.savefig(output_file_path, dpi=300, bbox_inches='tight')
+        # 计算 TIFF 的范围
+        transform = src.transform
+        bounds = [transform * (0, 0), transform * (src.width, src.height)]
+        extent = [bounds[0][0], bounds[1][0], bounds[1][1], bounds[0][1]]
 
-# 显示图形
-plt.show()
+        # 获取颜色范围
+        vmin, vmax = np.nanmin(data), np.nanmax(data)
+        print(f"TIFF 文件 {tif_file} 的最小值: {vmin}, 最大值: {vmax}")
+
+        # 颜色映射
+        clist = ['blue', 'limegreen', 'orange', 'red']
+        newcmap = LinearSegmentedColormap.from_list('mycolmap', clist, N=1024)
+
+        # 使用自定义颜色映射绘制栅格数据
+        im = ax.imshow(data, cmap=newcmap, interpolation='none', extent=extent, transform=ccrs.PlateCarree(), alpha=1)
+        cax = fig.add_axes([ax.get_position().x0, ax.get_position().y0-0.07, ax.get_position().width, 0.02]) # Set the length, width, height and position of the color bar
+        plt.colorbar(im, cax=cax, orientation = 'horizontal')
+        # 添加颜色条
+
+    # 添加南海区域
+    ax2 = fig.add_axes([0.805, 0.274, 0.1, 0.15], projection=ccrs.PlateCarree())
+    ax2.set_extent([104.5, 124, 0, 26], crs=ccrs.PlateCarree())
+    ax2.add_feature(cfeatur.OCEAN.with_scale('10m'), zorder=2)
+    bound_file.to_crs("EPSG:4326").plot(ax=ax2, color='none', edgecolor='black', linewidth=0.8)
+    if map_china_gdf is not None:
+        map_china_gdf.to_crs("EPSG:4326").plot(ax=ax2, color='none', edgecolor='blue', linewidth=0.8)
+    ax2.gridlines(draw_labels=False, linestyle='--', lw=0.3)
+
+    # 保存图片
+    output_file = f'photo/{pre_title}1.png'
+    plt.savefig(output_file, dpi=2800, bbox_inches='tight')
+    plt.show()
+
+# 测试调用
+tif_file_path = 'cropped_result/tiff/cropped_predicted_rf.tif'
+point_plot('China_TIFF', tif_file_path)
