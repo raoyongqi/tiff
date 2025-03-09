@@ -18,10 +18,6 @@ df = pd.read_csv('data/climate_soil_loc.csv')  # Replace with the path to your E
 import pandas as pd
 
 
-# 将城市和省级信息映射到 geo_df 中
-# 假设你已经有了通过 `City` 和 `Province` 找到 `adcode` 的方法
-# 这里你可以利用某些匹配条件 (比如 name 和 Province 来匹配)
-
 
 cities_data = df[['City','Province','District']]
 
@@ -37,16 +33,12 @@ import matplotlib.pyplot as plt
 # 检查并清理无效几何
 filtered_gdf = filtered_gdf[filtered_gdf.is_valid]
 
-# 重新绘制
-# filtered_gdf.plot()
-# plt.show()
 
 merged_df = pd.merge(cities_data, filtered_gdf, left_on='City', right_on='name', how='inner')
 
 
 provinces_to_include = ['西藏自治区', '新疆维吾尔自治区', '甘肃省', '青海省', '四川省', '内蒙古自治区']
 
-# 过滤 merged_df，保留 Province 列在 provinces_to_include 列表中的数据
 filtered_merged_df = merged_df[merged_df['Province'].isin(provinces_to_include)]
 
 
@@ -74,6 +66,8 @@ tiff_output_folder = os.path.join(base_path, 'cropped_result', 'tiff')
 os.makedirs(geojson_output_folder, exist_ok=True)
 os.makedirs(tiff_output_folder, exist_ok=True)
 print(tiff_output_folder)
+
+
 import os
 import rasterio
 import numpy as np

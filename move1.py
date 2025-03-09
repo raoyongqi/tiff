@@ -4,22 +4,7 @@ import shutil
 source_folder = 'result'  # 原始 TIFF 文件所在文件夹
 destination_folder = 'plus'  # 目标文件夹
 import pandas as pd
-from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import mean_squared_error, r2_score
-import joblib  # 用于保存模型
 import os  # 用于处理文件和目录
-from boruta import BorutaPy
-import matplotlib.pyplot as plt
-import seaborn as sns
-import pandas as pd
-from sklearn.ensemble import RandomForestRegressor
-
-import pandas as pd
-from sklearn.model_selection import train_test_split
-from sklearn.model_selection import train_test_split
-import matplotlib.pyplot as plt
-from lazypredict.Supervised import LazyRegressor
 
 # 1. 读取Excel文件
 # 1. 读取Excel文件
